@@ -1,0 +1,166 @@
+*************************************;
+*** begin scoring code for regression;
+*************************************;
+
+length _WARN_ $4;
+label _WARN_ = 'Warnings' ;
+
+length I_g $ 12;
+label I_g = 'Into: g' ;
+*** Target Values;
+array _DRF [3] $12 _temporary_ ('2' '1' '0' );
+label U_g = 'Unnormalized Into: g' ;
+*** Unnormalized target values;
+ARRAY _DRU[3]  _TEMPORARY_ (2 1 0);
+
+drop _DM_BAD;
+_DM_BAD=0;
+
+*** Check t for missing values ;
+if missing( t ) then do;
+   substr(_warn_,1,1) = 'M';
+   _DM_BAD = 1;
+end;
+
+*** Check csb1 for missing values ;
+if missing( csb1 ) then do;
+   substr(_warn_,1,1) = 'M';
+   _DM_BAD = 1;
+end;
+
+*** Check csb2 for missing values ;
+if missing( csb2 ) then do;
+   substr(_warn_,1,1) = 'M';
+   _DM_BAD = 1;
+end;
+
+*** Check csb3 for missing values ;
+if missing( csb3 ) then do;
+   substr(_warn_,1,1) = 'M';
+   _DM_BAD = 1;
+end;
+
+*** Check ccpay for missing values ;
+if missing( ccpay ) then do;
+   substr(_warn_,1,1) = 'M';
+   _DM_BAD = 1;
+end;
+
+*** Check n_dsl for missing values ;
+if missing( n_dsl ) then do;
+   substr(_warn_,1,1) = 'M';
+   _DM_BAD = 1;
+end;
+
+*** Check up_fds1 for missing values ;
+if missing( up_fds1 ) then do;
+   substr(_warn_,1,1) = 'M';
+   _DM_BAD = 1;
+end;
+
+*** Check up_ds13 for missing values ;
+if missing( up_ds13 ) then do;
+   substr(_warn_,1,1) = 'M';
+   _DM_BAD = 1;
+end;
+*** If missing inputs, use averages;
+if _DM_BAD > 0 then do;
+   _P0 = 0.0058853119;
+   _P1 = 0.0939134809;
+   _P2 = 0.9002012072;
+   goto _DR1;
+end;
+
+*** Compute Linear Predictor;
+drop _TEMP;
+drop _LP0  _LP1;
+_LP0 = 0;
+_LP1 = 0;
+
+***  Effect: t ;
+_TEMP = t ;
+_LP0 = _LP0 + (    0.03928885968339 * _TEMP);
+_LP1 = _LP1 + (    0.01506426944318 * _TEMP);
+
+***  Effect: csb1 ;
+_TEMP = csb1 ;
+_LP0 = _LP0 + (    0.03877787208038 * _TEMP);
+_LP1 = _LP1 + (   -0.03060632143059 * _TEMP);
+
+***  Effect: csb2 ;
+_TEMP = csb2 ;
+_LP0 = _LP0 + (    0.00475740844251 * _TEMP);
+_LP1 = _LP1 + (   -0.00716942725189 * _TEMP);
+
+***  Effect: csb3 ;
+_TEMP = csb3 ;
+_LP0 = _LP0 + (    0.00139132259117 * _TEMP);
+_LP1 = _LP1 + (    0.00087362595437 * _TEMP);
+
+***  Effect: ccpay ;
+_TEMP = ccpay ;
+_LP0 = _LP0 + (   -1.34387035405024 * _TEMP);
+_LP1 = _LP1 + (   -0.04306260805209 * _TEMP);
+
+***  Effect: n_dsl ;
+_TEMP = n_dsl ;
+_LP0 = _LP0 + (    0.03724659226559 * _TEMP);
+_LP1 = _LP1 + (   -0.80088258018354 * _TEMP);
+
+***  Effect: up_fds1 ;
+_TEMP = up_fds1 ;
+_LP0 = _LP0 + (    1.00971846157276 * _TEMP);
+_LP1 = _LP1 + (   -0.45370561119487 * _TEMP);
+
+***  Effect: up_ds13 ;
+_TEMP = up_ds13 ;
+_LP0 = _LP0 + (    1.93456487997456 * _TEMP);
+_LP1 = _LP1 + (   -0.87713698784676 * _TEMP);
+
+***  Effect: t*ccpay ;
+_TEMP = t  * ccpay ;
+_LP0 = _LP0 + (   -0.17944845408583 * _TEMP);
+_LP1 = _LP1 + (   -0.05577136545556 * _TEMP);
+
+*** Naive Posterior Probabilities;
+drop _MAXP _IY _P0 _P1 _P2;
+drop _LPMAX;
+_LPMAX= 0;
+_LP0 =    -4.78451930660069 + _LP0;
+if _LPMAX < _LP0 then _LPMAX = _LP0;
+_LP1 =    -2.06093138825176 + _LP1;
+if _LPMAX < _LP1 then _LPMAX = _LP1;
+_LP0 = exp(_LP0 - _LPMAX);
+_LP1 = exp(_LP1 - _LPMAX);
+_LPMAX = exp(-_LPMAX);
+_P2 = 1 / (_LPMAX + _LP0 + _LP1);
+_P0 = _LP0 * _P2;
+_P1 = _LP1 * _P2;
+_P2 = _LPMAX * _P2;
+
+_DR1:
+
+
+*** Posterior Probabilities and Predicted Level;
+label P_g2 = 'Predicted: g=2' ;
+label P_g1 = 'Predicted: g=1' ;
+label P_g0 = 'Predicted: g=0' ;
+P_g2 = _P0;
+_MAXP = _P0;
+_IY = 1;
+P_g1 = _P1;
+if (_P1 - _MAXP > 1e-8) then do;
+   _MAXP = _P1;
+   _IY = 2;
+end;
+P_g0 = _P2;
+if (_P2 - _MAXP > 1e-8) then do;
+   _MAXP = _P2;
+   _IY = 3;
+end;
+I_g = _DRF[_IY];
+U_g = _DRU[_IY];
+
+*************************************;
+***** end scoring code for regression;
+*************************************;

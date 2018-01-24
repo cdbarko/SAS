@@ -1,0 +1,70 @@
+%let your_db2_id=xxxx;
+%let your_db2_pw=xxxx;
+
+libname dwdbprod db2 database=DWDBPROD user=&your_db2_id password=&your_db2_pw
+		schema=SESSION connection=global; 
+
+
+/***********************************************************************/
+/*                                                                     */
+/*          CREATE Diagnosis code INFORMAT                            */
+/*                                                                     */
+/***********************************************************************/
+
+filename in_dgcode  "/opt/sas/data/daily_denial_status/diag_codes.csv" lrecl=300;
+
+%macro dg_code(fmt_,var1_);
+DATA DIAG_CODE;
+   INFILE in_dgcode END = EOF FIRSTOBS=2;
+	INPUT
+	   START       : $CHAR6.
+	   &var1_      : $CHAR1.
+;
+
+/*  remove the period from the diagnosis code  */
+
+START = compress(START,'.');
+
+   RETAIN HLO " ";
+   FMTNAME = "&fmt_" ;
+   TYPE    = "J" ;
+   OUTPUT;
+
+   IF EOF THEN DO ;
+      START = " " ;
+	  LABEL = "N" ;
+      HLO   = "O";
+      OUTPUT ;
+   END ;
+RUN;
+
+PROC FORMAT CNTLIN = DIAG_CODE;
+RUN;
+%mend dg_code;
+
+%dg_code(dg_code_latest,LABEL);
+run;
+
+
+
+array diagx{*} $ diag1-diag8;
+array diaghls{*} $ diaghls1-diaghls8
+i=1;
+do while (i<=dim(diagx));
+	diagx(i) = '';
+	diaghls(i) = '';
+	i=i+1;
+end; 
+
+i=1;
+diaghls_all = 1;
+
+do while (diagx(i)^=' ');
+
+   diaghls(i) = input(diagx(i),$dg_code_latest.);
+   if i = 1 then diag_primaryhls = diaghls(i);
+   i=i+1;
+
+   if diaghls(i) = 'F' then diaghls_all = 0;
+
+end;	

@@ -1,0 +1,176 @@
+libname io '/opt/sas/data/letter_campaign_model';
+run;
+
+proc contents data=io.letter4D_pmt short out=letter4D_vars(keep=name type length) noprint;
+run; 
+
+proc sql noprint;
+select name into :num_vars
+from letter4D_vars
+where type = 1;
+run;
+
+%let num_vars2=
+c_avg_education
+c_avg_hh_size
+c_med_hh_income
+c_med_home_val
+c_med_rent
+c_pct_family_hh
+c_pct_hs_plus
+c_pct_lt_hs
+c_pct_now_married
+c_pct_ssi
+d_age_in_years
+d_before_letter_pmt_typ
+d_gender
+d_inv_carrier
+d_orig_bill_cd
+d_rel_to_subscr
+d_segment
+d_seq_num
+d_state
+d_zip
+missing_census
+missing_phone_num
+ms_avg_education
+ms_avg_hh_size
+ms_med_hh_income
+ms_med_home_val
+ms_med_rent
+ms_pct_family_hh
+ms_pct_hs_plus
+ms_pct_lt_hs
+ms_pct_now_married
+ms_pct_ssi
+pt_cp_before_letter
+sm_age_in_years
+sm_batch_amt
+sm_before_letter_pmt_amt
+sm_in_pat_days
+sm_letter_bal
+sm_loa
+sm_pt_cp_before_letter_amt
+sm_seq_num
+sm_spec_age_in_days
+sm_total_pt_price
+thrd_p_cp_before_letter
+thrd_p_cp_before_letter_amt
+woe_age_in_years
+woe_before_letter_pmt_typ
+woe_gender
+woe_inv_carrier
+woe_orig_bill_cd
+woe_rel_to_subscr
+woe_segment
+woe_seq_num
+woe_state
+woe_zip
+;
+
+data imputed;
+ set io.letter4D_pmt
+  (keep=&num_vars2);
+run;
+
+
+/* Using ODS, restrict the output to    */
+/* the final set of variable clustering */
+/* results.                             */
+
+/* Use the TRACE statement to get the names */
+/* of the necessary output objects.         */
+ods trace on/listing;
+
+proc varclus data=imputed 
+             maxeigen=.7
+             outtree=fortree 
+             short;
+   var &num_vars2;
+run;
+
+ods trace off;
+
+/* Use the OUTPUT statement to generate  */
+/* data sets based on the variable       */
+/* clustering results and the clustering */
+/* summary.                              */
+ods listing close;
+ods output clusterquality=summary
+           rsquare=clusters;
+
+proc varclus data=imputed 
+             maxeigen=.7 
+             short 
+             hi;
+   var &num_vars2;
+run;
+ods listing;
+
+/* Use the CALL SYMPUT function to create */
+/* a macro variable:                      */
+/* &NVAR = the number of of clusters       */
+/* This is also the number of variables   */
+/* in the analysis, going forward.        */
+data _null_;
+   set summary;
+   call symput('nvar',compress(NumberOfClusters));
+run;
+
+proc print data=clusters;
+   where NumberOfClusters=&nvar;
+   id cluster;
+   var Variable RSquareRatio;
+run;
+
+/* The TREE procedure will generate a visual */
+/* representation of the hierarchical        */
+/* variable clustering.                      */
+axis1 value=(font = tahoma rotate=0 height=.8) 
+      label=(font = tahoma angle=90 height=2);
+axis2 order=(0 to 6 by 2);
+proc tree data=fortree 
+          horizontal 
+          vaxis=axis1 
+          haxis=axis2;
+   height _MAXEIG_;
+run;
+
+/* Choose a representative */
+/* from each cluster       */
+%let reduced=
+missing_census
+missing_phone_num
+ms_avg_education
+ms_avg_hh_size
+ms_med_hh_income
+ms_med_home_val
+ms_med_rent
+ms_pct_family_hh
+ms_pct_hs_plus
+ms_pct_lt_hs
+ms_pct_now_married
+ms_pct_ssi
+pt_cp_before_letter
+sm_loa
+sm_pt_cp_before_letter_amt
+sm_spec_age_in_days
+sm_total_pt_price
+thrd_p_cp_before_letter
+woe_age_in_years
+woe_before_letter_pmt_typ
+woe_gender
+woe_inv_carrier
+woe_orig_bill_cd
+woe_rel_to_subscr
+woe_segment
+woe_seq_num
+woe_state
+woe_zip
+letter_4D_cp
+;
+
+data io.letter4D_pmt_reduced;
+ set io.letter4D_pmt
+  (keep=&reduced);
+run;
